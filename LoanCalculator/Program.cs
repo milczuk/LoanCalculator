@@ -18,66 +18,102 @@ namespace LoanCalculator
         /// for simplicity we can assume it's number of years. 
         /// If you want 5.5 years long loan you'd need to mess with the engine a little 
         /// (no floats for this field allowed in v1, sorry)</param>
-        /// <param name="simpleBaseUnitOfTimeInterestRate">AKA Annual Interest Rate (the fake one banks use to trick people who do not know the math behind compound interest)</param>
+        /// <param name="nominalInterestRate">AKA Annual Interest Rate (the fake one banks use to trick people who do not know the math behind compound interest)</param>
         /// <param name="repaymentFrequency">frequency of payments but also of applying interest in single unit of time (12 means 12 times, like monthly capitalization during a year _unit of time_.</param>
         /// <param name="maxAdmissionFee">maximum admission fee</param>
         /// <param name="admissionFeeRate"></param>
         public static void Main(
             double loanAmount = 500000,
             int loanDuration = 10,
-            double simpleBaseUnitOfTimeInterestRate = 0.05,
+            double nominalInterestRate = 0.05,
             int repaymentFrequency = 12,
             double maxAdmissionFee = 10000,
             double admissionFeeRate = 0.01)
         {
             ValidateNumbersGreaterThan0(nameof(loanDuration), loanDuration);
-            ValidateNumbersGreaterThan0(nameof(simpleBaseUnitOfTimeInterestRate), simpleBaseUnitOfTimeInterestRate);
             ValidateNumbersGreaterThan0(nameof(repaymentFrequency), repaymentFrequency);
-            ValidateNumbersGreaterThan0(nameof(maxAdmissionFee), maxAdmissionFee);
-            ValidateNumbersGreaterThan0(nameof(admissionFeeRate), admissionFeeRate);
-            maxAdmissionFee = FixAdmissionFee(maxAdmissionFee);
+            ValidateNumbersGreaterThan0(nameof(nominalInterestRate), nominalInterestRate);
+            maxAdmissionFee = FixIfLessThanZero(nameof(maxAdmissionFee), maxAdmissionFee);
+            admissionFeeRate = FixIfLessThanZero(nameof(admissionFeeRate), admissionFeeRate);
 
             var totalCountOfRepaymentPeriods = loanDuration * repaymentFrequency;
 
-            var monthlyPaymentAmount = CalculateConstantMonthlyPaymentAmount(
-                loanAmount,
-                simpleBaseUnitOfTimeInterestRate,
-                repaymentFrequency,
-                totalCountOfRepaymentPeriods);
+            var monthlyPaymentAmount =
+                CalculateConstantMonthlyPaymentAmount(
+                    loanAmount,
+                    nominalInterestRate,
+                    repaymentFrequency,
+                    totalCountOfRepaymentPeriods);
+
             var admissionFee = CalculateAdmissionFee(loanAmount, maxAdmissionFee, admissionFeeRate);
+            var totalInterestRateCost = (totalCountOfRepaymentPeriods * monthlyPaymentAmount) - loanAmount;
+
             Console.WriteLine($"Total number of repayment periods:\t{totalCountOfRepaymentPeriods}");
             Console.WriteLine($"Monthly payment amount:\t{monthlyPaymentAmount}");
-            var totalInterestRateCost = (totalCountOfRepaymentPeriods * monthlyPaymentAmount) - loanAmount;
             Console.WriteLine($"Total amount paint in interest rate for the full duration of the loan:\t{totalInterestRateCost}");
             Console.WriteLine($"Admission fee:\t{admissionFee}");
 
-            //first guess based on interest rates alone
-            var effectiveCostPerUnitOfTime = Math.Pow(1 + ((double)simpleBaseUnitOfTimeInterestRate / (double)repaymentFrequency), repaymentFrequency) - 1;
-            //iterate the equsion for 20 times until minumum found
-            int retryCnt = 0;
-            const int MAX_RETRY_CNT = 20;
-
-            while (retryCnt < MAX_RETRY_CNT)
-            {
-                delta = 
-                    //all the drawdowns
-                    loanAmount - admissionFee - 
-                    //all the repayments
-
-                if (Math.Abs(delta) < 0.0001)
-                {
-                    break;//who cares about greater precision? nobody, that's who.
-                }
-                retryCnt++;
-            }
-            Console.WriteLine($"\"ÅOP\" also known as the yearly cost as a percentage of the loan amount\t{effectiveCostPerUnitOfTime} or {effectiveCostPerUnitOfTime * 100:F2}%");
+            double effectiveCostPerUnitOfTime = CalculateÅOPLikeExplainedOnWikipedia(
+                loanAmount,
+                nominalInterestRate,
+                repaymentFrequency,
+                totalCountOfRepaymentPeriods,
+                monthlyPaymentAmount,
+                admissionFee);
+            Console.WriteLine(
+                "\"ÅOP\" also known as the yearly cost as a percentage of " +
+                $"the loan amount\t{effectiveCostPerUnitOfTime} ~= {effectiveCostPerUnitOfTime * 100:F3}%");
         }
 
-        private static double FixAdmissionFee(double maxAdmissionFee)
+        private static double CalculateÅOPLikeExplainedOnWikipedia(
+            double loanAmount,
+            double nominalInterestRate,
+            int repaymentFrequency,
+            int totalCountOfRepaymentPeriods,
+            double monthlyPaymentAmount,
+            double admissionFee)
+        {
+            //first guess based on interest rates alone
+            var effectiveCostPerUnitOfTime = Math.Pow(1 + (nominalInterestRate / repaymentFrequency), repaymentFrequency) - 1;
+            //iterate the equsion for 20 times until minumum found
+            int retryCnt = 0;
+            const int MAX_RETRY_CNT = 200;
+
+            // poor man's golden split search interpolation
+            var step = 0.5d;
+            while (retryCnt < MAX_RETRY_CNT)
+            {
+                var sum = 0d;
+                for (var i = 1; i <= totalCountOfRepaymentPeriods; i++)
+                {
+                    sum += monthlyPaymentAmount / Math.Pow(1 + effectiveCostPerUnitOfTime, i / repaymentFrequency);
+                }
+                var delta =
+                    //(all the drawdowns - all the fees (including admission fee) - all repayments) ---> we want this to be equal to 0 (zero)
+                    loanAmount - admissionFee - sum;
+                Console.WriteLine($"{effectiveCostPerUnitOfTime:F5} delta {retryCnt,2} = {delta,15:F5}");
+                if (Math.Abs(delta) < 0.0001)
+                {
+                    break; // precise enough
+                }
+
+                var direction = delta < 0 ? 1 : -1;
+                effectiveCostPerUnitOfTime += step * direction;
+                if (effectiveCostPerUnitOfTime < 0)
+                    effectiveCostPerUnitOfTime = 0;// it get's weird when we go below zero, so let's avoid that
+
+                step *= 0.666;
+                retryCnt++;
+            }
+
+            return effectiveCostPerUnitOfTime;
+        }
+
+        private static double FixIfLessThanZero(string fieldName, double maxAdmissionFee)
         {
             if (maxAdmissionFee < 0)
             {
-                Console.WriteLine("looks like you provided less than zero value for maximum admission fee. " +
+                Console.WriteLine($"looks like you provided less than zero value for {fieldName}. " +
                     "\nNo worries. " +
                     "\nI'll just assum you ment zero there. We're all good:)");
                 maxAdmissionFee = 0;
@@ -86,12 +122,12 @@ namespace LoanCalculator
             return maxAdmissionFee;
         }
 
-        private static double CalculateConstantMonthlyPaymentAmount(double loanAmount, double simpleBaseUnitOfTimeInterestRate, int paymentFrequency, int totalCountOfPaymentPeriods)
+        private static double CalculateConstantMonthlyPaymentAmount(double loanAmount, double nominalInterestRate, int repaymentFrequency, int totalCountOfPaymentPeriods)
         {
             // so I just used this equasion from here: https://pl.wikipedia.org/wiki/Raty_r%C3%B3wne (sorry it's in polish...) 
             // and it worked, I mean I got the result from the example so it must be what you wanted 
-            return loanAmount * simpleBaseUnitOfTimeInterestRate / (
-                paymentFrequency * (1 - Math.Pow(1 / (1 + (simpleBaseUnitOfTimeInterestRate / paymentFrequency)), totalCountOfPaymentPeriods)));
+            return loanAmount * nominalInterestRate / (
+                repaymentFrequency * (1 - Math.Pow(1 / (1 + (nominalInterestRate / repaymentFrequency)), totalCountOfPaymentPeriods)));
         }
 
         private static double CalculateAdmissionFee(double loanAmount, double maxAdmissionFee, double admissionFeeRate)
