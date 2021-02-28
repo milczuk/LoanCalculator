@@ -22,13 +22,15 @@ namespace LoanCalculator
         /// <param name="repaymentFrequency">frequency of payments but also of applying interest in single unit of time (12 means 12 times, like monthly capitalization during a year _unit of time_.</param>
         /// <param name="maxAdmissionFee">maximum admission fee</param>
         /// <param name="admissionFeeRate"></param>
+        /// <param name="debugÅOP">nothing to see here, move along, just some param for testing purposes</param>
         public static void Main(
             double loanAmount = 500000,
             int loanDuration = 10,
             double nominalInterestRate = 0.05,
             int repaymentFrequency = 12,
             double maxAdmissionFee = 10000,
-            double admissionFeeRate = 0.01)
+            double admissionFeeRate = 0.01,
+            bool debugÅOP = false)
         {
             ValidateNumbersGreaterThan0(nameof(loanDuration), loanDuration);
             ValidateNumbersGreaterThan0(nameof(repaymentFrequency), repaymentFrequency);
@@ -59,7 +61,8 @@ namespace LoanCalculator
                 repaymentFrequency,
                 totalCountOfRepaymentPeriods,
                 monthlyPaymentAmount,
-                admissionFee);
+                admissionFee,
+                debugÅOP);
             Console.WriteLine(
                 "\"ÅOP\" also known as the yearly cost as a percentage of " +
                 $"the loan amount\t{effectiveCostPerUnitOfTime} ~= {effectiveCostPerUnitOfTime * 100:F3}%");
@@ -71,7 +74,8 @@ namespace LoanCalculator
             int repaymentFrequency,
             int totalCountOfRepaymentPeriods,
             double monthlyPaymentAmount,
-            double admissionFee)
+            double admissionFee,
+            bool debugÅOP)
         {
             //first guess based on interest rates alone
             var effectiveCostPerUnitOfTime = Math.Pow(1 + (nominalInterestRate / repaymentFrequency), repaymentFrequency) - 1;
@@ -91,7 +95,12 @@ namespace LoanCalculator
                 var delta =
                     //(all the drawdowns - all the fees (including admission fee) - all repayments) ---> we want this to be equal to 0 (zero)
                     loanAmount - admissionFee - sum;
-                Console.WriteLine($"{effectiveCostPerUnitOfTime:F5} delta {retryCnt,2} = {delta,15:F5}");
+
+                if (debugÅOP)
+                {
+                    Console.WriteLine($"{effectiveCostPerUnitOfTime:F5} delta {retryCnt,2} = {delta,15:F5}");
+                }
+
                 if (Math.Abs(delta) < 0.0001)
                 {
                     break; // precise enough
