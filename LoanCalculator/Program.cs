@@ -1,22 +1,20 @@
 ﻿using System;
-using System.Runtime;
-using System.CommandLine;
 
 namespace LoanCalculator
 {
     static class Program
     {
         /// <summary>
-        /// Loan calculator command line program. can generate a payment overview for a simplified loan calculation given these parameter.
-        /// Unit of Time could be a year, does not matter for the math to work. Just assume it's in years.
+        /// This is a Loan calculator command line program. 
+        /// It is capable of generating a payment overview for a simplified loan calculation given some input parameters.
+        /// Unit of Time is an interesting concept here - this could be a year, does not matter for the math to work. Just assume it's in years. Ok it actually matters for the ÅOP calculation.
         /// Payments and capitalization by default is 12 times a year, we could have more or less, your call.
-        /// just do not provide values below zero, there is no point really. I don't know if this breaks the math, I just don't want to go there. OK? 
-        /// I'll let you set the amount to less then zero, let's see what happens.
+        /// Just do not provide values below zero. I don't know if this breaks the math, it took me a while to write this down, and now I just don't want to go there. OK?
         /// </summary>
-        /// <param name="loanAmount">loan amount (Principal)</param>
+        /// <param name="loanAmount">loan amount (aka Principal)</param>
         /// <param name="loanDuration">loan duration (in _units of time_),
-        /// for simplicity we can assume it's number of years. 
-        /// If you want 5.5 years long loan you'd need to mess with the engine a little 
+        /// for simplicity we can assume it's number of years.
+        /// If you want 5.5 years long loan you'd need to mess with the engine a little
         /// (no floats for this field allowed in v1, sorry)</param>
         /// <param name="nominalInterestRate">AKA Annual Interest Rate (the fake one banks use to trick people who do not know the math behind compound interest)</param>
         /// <param name="repaymentFrequency">frequency of payments but also of applying interest in single unit of time (12 means 12 times, like monthly capitalization during a year _unit of time_.</param>
@@ -39,20 +37,19 @@ namespace LoanCalculator
             admissionFeeRate = FixIfLessThanZero(nameof(admissionFeeRate), admissionFeeRate);
 
             var totalCountOfRepaymentPeriods = loanDuration * repaymentFrequency;
+            Console.WriteLine($"Total number of repayment periods:\t{totalCountOfRepaymentPeriods}");
 
-            var monthlyPaymentAmount =
-                CalculateConstantMonthlyPaymentAmount(
-                    loanAmount,
-                    nominalInterestRate,
-                    repaymentFrequency,
-                    totalCountOfRepaymentPeriods);
+            var monthlyPaymentAmount = CalculateConstantMonthlyPaymentAmount(
+                loanAmount,
+                nominalInterestRate,
+                repaymentFrequency,
+                totalCountOfRepaymentPeriods);
+            Console.WriteLine($"Monthly payment amount:\t{monthlyPaymentAmount}");
+
+            var totalInterestRateCost = (totalCountOfRepaymentPeriods * monthlyPaymentAmount) - loanAmount;
+            Console.WriteLine($"Total amount paint in interest rate for the full duration of the loan:\t{totalInterestRateCost}");
 
             var admissionFee = CalculateAdmissionFee(loanAmount, maxAdmissionFee, admissionFeeRate);
-            var totalInterestRateCost = (totalCountOfRepaymentPeriods * monthlyPaymentAmount) - loanAmount;
-
-            Console.WriteLine($"Total number of repayment periods:\t{totalCountOfRepaymentPeriods}");
-            Console.WriteLine($"Monthly payment amount:\t{monthlyPaymentAmount}");
-            Console.WriteLine($"Total amount paint in interest rate for the full duration of the loan:\t{totalInterestRateCost}");
             Console.WriteLine($"Admission fee:\t{admissionFee}");
 
             double effectiveCostPerUnitOfTime = CalculateÅOPLikeExplainedOnWikipedia(
@@ -65,7 +62,8 @@ namespace LoanCalculator
                 debugÅOP);
             Console.WriteLine(
                 "\"ÅOP\" also known as the yearly cost as a percentage of " +
-                $"the loan amount\t{effectiveCostPerUnitOfTime} ~= {effectiveCostPerUnitOfTime * 100:F3}%");
+                $"the loan amount\t{effectiveCostPerUnitOfTime} ~= {effectiveCostPerUnitOfTime * 100:F3}%" +
+                $"\nI'm not really sure about the math here for ÅOP... there is a lot of examples of this calculation on the web not the results do not match mine. Maybe they are all wrong...");
         }
 
         private static double CalculateÅOPLikeExplainedOnWikipedia(
