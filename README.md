@@ -1,11 +1,12 @@
-LoanCalculator:
-  Loan calculator command line program. can generate a payment overview for a simplified loan calculation given these parameter.
-   Unit of Time could be a year, does not matter for the math to work. Just assume it's in years.
-   Payments and capitalization by default is 12 times a year, we could have more or less, your call.
-   just do not provide values below zero, there is no point really. I don't know if this breaks the math, I just don't want to go there. OK?
-   I'll let you set the amount to less then zero, let's see what happens.
+# Loan Calculator
+  ## Loan calculator command line program (interview excercise)
+  This small program generates a payment overview for a simplified loan calculation given these parameter.
+  Unit of Time could be a year, does not matter for the math to work. Just assume it's in years.
+  Payments and capitalization by default is 12 times a year, we could have more or less, your call.
+  just do not provide values below zero, there is no point really. I don't know if this breaks the math, I just don't want to go there. OK?
+  I'll let you set the amount to less then zero, let's see what happens.
+## Usage:
 <pre>
-Usage:
   LoanCalculator [options]
 
 Options:
